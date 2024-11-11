@@ -4,6 +4,8 @@
 #include "../nclgl/Shader.h"
 #include "../nclgl/Camera.h"
 
+#define SHADOWSIZE 2048
+
 Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	quad = Mesh::GenerateQuad();
 
@@ -31,17 +33,38 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	skyboxShader = new Shader("skyboxVertex.glsl", "skyboxFragment.glsl");
 
-	lightShader = new Shader("bumpvertex.glsl", "bumpfragment.glsl");
+	lightShader = new Shader("shadowscenevert.glsl", "shadowscenefrag.glsl");
 
-	if (!reflectShader->LoadSuccess() || !skyboxShader->LoadSuccess() || !lightShader->LoadSuccess()) {
+	shadowShader = new Shader("shadowVert.glsl", "shadowFrag.glsl");
+
+	if (!reflectShader->LoadSuccess() || !skyboxShader->LoadSuccess() || !lightShader->LoadSuccess() || !shadowShader->LoadSuccess()) {
 		return;
 	}
-	
+	//Shadow buffer code
+	glGenTextures(1, &shadowTex);
+	glBindTexture(GL_TEXTURE_2D, shadowTex);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOWSIZE, SHADOWSIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glGenFramebuffers(1, &shadowFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTex, 0);
+
+	glDrawBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+
 	Vector3 heightmapSize = heightMap->GetHeightmapSize();
 
 	camera = new Camera(-45.0f, 0.0f, heightmapSize * Vector3(0.5f, 5.0f, 0.5f));
 
-	light = new Light(heightmapSize * Vector3(0.7f, 3.5f, 0.3f), Vector4(1, 1, 1, 1), 1.5f * heightmapSize.x);
+	light = new Light(heightmapSize * Vector3(0.7f, 3.5f, 0.0f), Vector4(1, 1, 1, 1), 1.5f * heightmapSize.x);
 
 	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
 
@@ -54,29 +77,59 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	init = true;
 }
 Renderer::~Renderer(void) {
+	glDeleteTextures(1, &shadowTex);
+	glDeleteFramebuffers(1, &shadowFBO);
+
 	delete camera;
 	delete heightMap;
 	delete quad;
 	delete reflectShader;
 	delete skyboxShader;
 	delete lightShader;
+	delete shadowShader;
 	delete light;
 
 }
 void Renderer::UpdateScene(float dt) {
 	camera->UpdateCamera(dt);
-	viewMatrix = camera->BuildViewMatrix();
+	//viewMatrix = camera->BuildViewMatrix();
 	waterRotate += dt * 0.2f;
 	waterCycle += dt * 0.05f;
 }
 void Renderer::RenderScene() {
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-	
+
+	DrawShadowScene();
+
 	DrawSkybox();
 	DrawHeightmap();
 	DrawWater();
 	
 }
+
+void Renderer::DrawShadowScene() {
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowFBO);
+
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glViewport(0, 0, SHADOWSIZE, SHADOWSIZE);
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+	BindShader(shadowShader);
+	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0, 0, 0));
+
+	projMatrix = Matrix4::Perspective(1, 100, 1, 45);
+	shadowMatrix = projMatrix * viewMatrix;
+
+	modelMatrix.ToIdentity();
+	UpdateShaderMatrices();
+	heightMap->Draw();
+	
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glViewport(0, 0, width, height);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void Renderer::DrawSkybox() {
 	glDepthMask(GL_FALSE);
 
@@ -90,7 +143,7 @@ void Renderer::DrawSkybox() {
 void Renderer::DrawHeightmap() {
 	BindShader(lightShader);
 	SetShaderLight(*light);
-	glUniform3fv(glGetUniformLocation(lightShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
+	//glUniform3fv(glGetUniformLocation(lightShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
 
 	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "diffuseTex"), 0);
 	glActiveTexture(GL_TEXTURE0);
@@ -99,6 +152,13 @@ void Renderer::DrawHeightmap() {
 	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "bumpTex"), 1);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, earthBump);
+
+	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "shadowTex"), 2);
+
+	glUniform3fv(glGetUniformLocation(lightShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, shadowTex);
 	
 	modelMatrix.ToIdentity();
 	textureMatrix.ToIdentity();

@@ -26,13 +26,16 @@ void main(void){
 	mat3 TBN = mat3(normalize(IN.tangent), normalize(IN.binormal),normalize(IN.normal));
 	vec4 diffuse = texture(diffuseTex, IN.texCoord);
 	vec3 bumpNormal = texture(bumpTex, IN.texCoord).rgb;
+
 	bumpNormal = normalize(TBN* normalize(bumpNormal *2.0 -1.0));
+
 	float lambert = max(dot(incident, bumpNormal), 0.0f);
 	float distance = length(lightPos - IN.worldPos);
 	float attenuation = 1.0 - clamp(distance/lightRadius,0.0,1.0);
 
 	float specFactor = clamp(dot(halfDir, bumpNormal), 0.0,1.0);
 	specFactor = pow(specFactor,60.0);
+
 	vec3 surface = (diffuse.rgb * lightColour.rgb);
 	fragColour.rgb = surface * lambert * attenuation;
 	fragColour.rgb += (lightColour.rgb *specFactor)*attenuation*0.33;

@@ -15,10 +15,15 @@ protected:
 	void DrawHeightmap();
 	void DrawWater();
 	void DrawSkybox();
+	void DrawShadowScene();
 
 	Shader* lightShader;
 	Shader* reflectShader;
 	Shader* skyboxShader;
+	Shader* shadowShader;
+
+	GLuint shadowTex;
+	GLuint shadowFBO;
 
 	HeightMap* heightMap;
 	Mesh* quad;
