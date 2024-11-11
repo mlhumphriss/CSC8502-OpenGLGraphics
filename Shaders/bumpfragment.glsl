@@ -8,7 +8,7 @@ uniform vec4 lightColour;
 uniform vec3 lightPos;
 uniform float lightRadius;
 
-in VERTEX{
+in Vertex{
 	vec3 colour;
 	vec2 texCoord;
 	vec3 normal;
