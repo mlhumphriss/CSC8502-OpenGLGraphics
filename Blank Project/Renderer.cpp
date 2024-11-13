@@ -16,7 +16,9 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	shadowShader = new Shader("shadowVert.glsl", "shadowFrag.glsl");
 
-	if (!reflectShader->LoadSuccess() || !skyboxShader->LoadSuccess() || !lightShader->LoadSuccess() || !shadowShader->LoadSuccess()) {
+	cubeShader = new Shader("TexturedVertex.glsl", "TexturedFragment.glsl");
+
+	if (!reflectShader->LoadSuccess() || !skyboxShader->LoadSuccess() || !lightShader->LoadSuccess() || !shadowShader->LoadSuccess() || !cubeShader->LoadSuccess()) {
 		return;
 	}
 	//Shadow buffer code
@@ -41,6 +43,8 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	quad = Mesh::GenerateQuad();
 
 	test = Mesh::LoadFromMeshFile("Cube.msh");
+
+
 
 	heightMap = new HeightMap(TEXTUREDIR"noise.png");
 
@@ -114,6 +118,7 @@ void Renderer::RenderScene() {
 
 	DrawSkybox();
 	DrawHeightmap();
+	DrawCube();
 	DrawWater();
 	
 }
@@ -131,10 +136,15 @@ void Renderer::DrawShadowScene() {
 	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
 	shadowMatrix = projMatrix * viewMatrix;
 
+	//modelMatrix.ToIdentity()
+	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.5f, 5.0f, 0.5f));
+	UpdateShaderMatrices();
+	
+	test->Draw();
+
 	modelMatrix.ToIdentity();
 	UpdateShaderMatrices();
 	heightMap->Draw();
-	test->Draw();
 	
 
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -179,10 +189,41 @@ void Renderer::DrawHeightmap() {
 	UpdateShaderMatrices();
 	heightMap->Draw();
 
-	test->Draw();
 
 
 }
+
+void Renderer::DrawCube() {
+	BindShader(cubeShader);
+
+	/*
+	glUniform1i(glGetUniformLocation(cubeShader->GetProgram(), "diffuseTex"), 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, squareTex);
+	*/
+	SetShaderLight(*light);
+
+	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "diffuseTex"), 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, squareTex);
+
+	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "bumpTex"), 1);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, earthBump);
+
+	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "shadowTex"), 2);
+
+	glUniform3fv(glGetUniformLocation(lightShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, shadowTex);
+	//*/
+
+	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.7f, 1.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f,100.0f,100.0f));
+	UpdateShaderMatrices();
+	test->Draw();
+}
+
 void Renderer::DrawWater() {
 	BindShader(reflectShader);
 

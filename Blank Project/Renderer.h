@@ -16,11 +16,13 @@ protected:
 	void DrawWater();
 	void DrawSkybox();
 	void DrawShadowScene();
+	void DrawCube();
 
 	Shader* lightShader;
 	Shader* reflectShader;
 	Shader* skyboxShader;
 	Shader* shadowShader;
+	Shader* cubeShader;
 
 	GLuint shadowTex;
 	GLuint shadowFBO;
