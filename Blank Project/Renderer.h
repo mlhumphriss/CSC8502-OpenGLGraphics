@@ -31,10 +31,14 @@ protected:
 	Light* light;
 	Camera* camera;
 
+	Mesh* test;
+
+
 	GLuint cubeMap;
 	GLuint waterTex;
 	GLuint earthTex;
 	GLuint earthBump;
+	GLuint squareTex;
 
 
 	float waterRotate;

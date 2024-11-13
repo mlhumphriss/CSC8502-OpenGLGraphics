@@ -7,28 +7,7 @@
 #define SHADOWSIZE 2048
 
 Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
-	quad = Mesh::GenerateQuad();
-
-	heightMap = new HeightMap(TEXTUREDIR"noise.png");
-
-	waterTex = SOIL_load_OGL_texture(TEXTUREDIR"water.TGA", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
-
-	earthTex = SOIL_load_OGL_texture(TEXTUREDIR"Barren Reds.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
-
-	earthBump = SOIL_load_OGL_texture(TEXTUREDIR"Barren RedsDOT3.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
-
-	cubeMap = SOIL_load_OGL_cubemap(TEXTUREDIR"rusted_west.jpg", TEXTUREDIR"rusted_east.jpg",
-		TEXTUREDIR"rusted_up.jpg", TEXTUREDIR"rusted_down.jpg", TEXTUREDIR"rusted_south.jpg",
-		TEXTUREDIR"rusted_north.jpg", SOIL_LOAD_RGB, SOIL_CREATE_NEW_ID, 0);
-
-	if (!earthTex || !earthBump || !cubeMap || !waterTex) {
-		return;
-	}
-
-	setTextureRepeating(earthTex, true);
-	setTextureRepeating(earthBump, true);
-	setTextureRepeating(waterTex, true);
-
+	
 	reflectShader = new Shader("reflectVertex.glsl", "reflectFragment.glsl");
 
 	skyboxShader = new Shader("skyboxVertex.glsl", "skyboxFragment.glsl");
@@ -59,6 +38,33 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 
+	quad = Mesh::GenerateQuad();
+
+	test = Mesh::LoadFromMeshFile("Cube.msh");
+
+	heightMap = new HeightMap(TEXTUREDIR"noise.png");
+
+	waterTex = SOIL_load_OGL_texture(TEXTUREDIR"water.TGA", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
+	earthTex = SOIL_load_OGL_texture(TEXTUREDIR"Barren Reds.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
+	earthBump = SOIL_load_OGL_texture(TEXTUREDIR"Barren RedsDOT3.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
+	squareTex = SOIL_load_OGL_texture(TEXTUREDIR"redSquare.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
+	cubeMap = SOIL_load_OGL_cubemap(TEXTUREDIR"rusted_west.jpg", TEXTUREDIR"rusted_east.jpg",
+		TEXTUREDIR"rusted_up.jpg", TEXTUREDIR"rusted_down.jpg", TEXTUREDIR"rusted_south.jpg",
+		TEXTUREDIR"rusted_north.jpg", SOIL_LOAD_RGB, SOIL_CREATE_NEW_ID, 0);
+
+	if (!earthTex || !earthBump || !cubeMap || !waterTex || !squareTex) {
+		return;
+	}
+
+	setTextureRepeating(earthTex, true);
+	setTextureRepeating(earthBump, true);
+	setTextureRepeating(waterTex, true);
+	setTextureRepeating(squareTex, true);
+	
 
 	Vector3 heightmapSize = heightMap->GetHeightmapSize();
 
@@ -67,6 +73,8 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	light = new Light(heightmapSize * Vector3(0.7f, 3.5f, 0.0f), Vector4(1, 1, 1, 1), 1.5f * heightmapSize.x);
 
 	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
+
+	
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -83,6 +91,7 @@ Renderer::~Renderer(void) {
 	delete camera;
 	delete heightMap;
 	delete quad;
+	delete test;
 	delete reflectShader;
 	delete skyboxShader;
 	delete lightShader;
@@ -100,6 +109,8 @@ void Renderer::RenderScene() {
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
 	DrawShadowScene();
+	viewMatrix = camera->BuildViewMatrix();
+	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
 
 	DrawSkybox();
 	DrawHeightmap();
@@ -117,13 +128,15 @@ void Renderer::DrawShadowScene() {
 	BindShader(shadowShader);
 	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0, 0, 0));
 
-	projMatrix = Matrix4::Perspective(1, 100, 1, 45);
+	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
 	shadowMatrix = projMatrix * viewMatrix;
 
 	modelMatrix.ToIdentity();
 	UpdateShaderMatrices();
 	heightMap->Draw();
+	test->Draw();
 	
+
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glViewport(0, 0, width, height);
 
@@ -165,6 +178,8 @@ void Renderer::DrawHeightmap() {
 
 	UpdateShaderMatrices();
 	heightMap->Draw();
+
+	test->Draw();
 
 
 }
