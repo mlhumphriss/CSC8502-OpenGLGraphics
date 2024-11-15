@@ -46,7 +46,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 
 
-	heightMap = new HeightMap(TEXTUREDIR"noise.png");
+	heightMap = new HeightMap(TEXTUREDIR"noise2.png");
 
 	waterTex = SOIL_load_OGL_texture(TEXTUREDIR"water.TGA", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
@@ -54,7 +54,9 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	earthBump = SOIL_load_OGL_texture(TEXTUREDIR"Barren RedsDOT3.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
-	squareTex = SOIL_load_OGL_texture(TEXTUREDIR"redSquare.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+	squareTex = SOIL_load_OGL_texture(TEXTUREDIR"brick.tga", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
+	squareBump = SOIL_load_OGL_texture(TEXTUREDIR"brickDOT3.tga", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
 	cubeMap = SOIL_load_OGL_cubemap(TEXTUREDIR"rusted_west.jpg", TEXTUREDIR"rusted_east.jpg",
 		TEXTUREDIR"rusted_up.jpg", TEXTUREDIR"rusted_down.jpg", TEXTUREDIR"rusted_south.jpg",
@@ -112,15 +114,15 @@ void Renderer::UpdateScene(float dt) {
 void Renderer::RenderScene() {
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-	DrawShadowScene();
-	viewMatrix = camera->BuildViewMatrix();
-	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
+	
 
 	DrawSkybox();
 	DrawHeightmap();
 	DrawCube();
 	DrawWater();
-	
+	DrawShadowScene();
+	viewMatrix = camera->BuildViewMatrix();
+	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
 }
 
 void Renderer::DrawShadowScene() {
@@ -131,13 +133,13 @@ void Renderer::DrawShadowScene() {
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
 	BindShader(shadowShader);
-	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0, 0, 0));
+	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0.2f, 0.1f, 0.2f));
 
 	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
 	shadowMatrix = projMatrix * viewMatrix;
-
+	
 	//modelMatrix.ToIdentity()
-	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.5f, 5.0f, 0.5f));
+	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.4f, 2.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f, 100.0f, 100.0f));
 	UpdateShaderMatrices();
 	
 	test->Draw();
@@ -194,13 +196,8 @@ void Renderer::DrawHeightmap() {
 }
 
 void Renderer::DrawCube() {
-	BindShader(cubeShader);
+	BindShader(lightShader);
 
-	/*
-	glUniform1i(glGetUniformLocation(cubeShader->GetProgram(), "diffuseTex"), 0);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, squareTex);
-	*/
 	SetShaderLight(*light);
 
 	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "diffuseTex"), 0);
@@ -209,17 +206,16 @@ void Renderer::DrawCube() {
 
 	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "bumpTex"), 1);
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, earthBump);
+	glBindTexture(GL_TEXTURE_2D, squareBump);
 
 	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "shadowTex"), 2);
-
 	glUniform3fv(glGetUniformLocation(lightShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
-
 	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, shadowTex);
-	//*/
 
-	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.7f, 1.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f,100.0f,100.0f));
+	glBindTexture(GL_TEXTURE_2D, shadowTex);
+	
+
+	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.4f, 2.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f,100.0f,100.0f));
 	UpdateShaderMatrices();
 	test->Draw();
 }

@@ -41,6 +41,7 @@ protected:
 	GLuint earthTex;
 	GLuint earthBump;
 	GLuint squareTex;
+	GLuint squareBump;
 
 
 	float waterRotate;
