@@ -46,4 +46,5 @@ protected:
 
 	float waterRotate;
 	float waterCycle;
+	float waterBob;
 };
