@@ -3,6 +3,8 @@
 class Camera;
 class Shader;
 class HeightMap;
+class MeshAnimation;
+class MeshMaterial;
 
 class Renderer : public OGLRenderer {
 public:
@@ -34,6 +36,10 @@ protected:
 	Camera* camera;
 
 	Mesh* test;
+
+	Mesh* fish;
+	MeshAnimation* fishAnim;
+	MeshMaterial* fishMat;
 
 
 	GLuint cubeMap;

@@ -3,6 +3,8 @@
 #include "../nclgl/HeightMap.h"
 #include "../nclgl/Shader.h"
 #include "../nclgl/Camera.h"
+#include "../nclgl/MeshAnimation.h"
+#include "../nclgl/MeshMaterial.h"
 
 #define SHADOWSIZE 4096
 
@@ -44,6 +46,9 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	test = Mesh::LoadFromMeshFile("Cube.msh");
 
+	fish = Mesh::LoadFromMeshFile("bass2.msh");
+	fishAnim = new MeshAnimation("bass2.anm");
+	fishMat = new MeshMaterial("bass2.mat");
 
 
 	heightMap = new HeightMap(TEXTUREDIR"noise2.png");
@@ -76,9 +81,9 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	camera = new Camera(-45.0f, 0.0f, heightmapSize * Vector3(0.5f, 5.0f, 0.5f));
 
-	light = new Light(heightmapSize * Vector3(0.7f, 3.5f, 0.0f), Vector4(1, 1, 1, 1), 1.5f * heightmapSize.x);
+	light = new Light(heightmapSize * Vector3(1.0f, 3.5f, 0.0f), Vector4(1, 1, 1, 1), 2.0f * heightmapSize.x);
 
-	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
+	projMatrix = Matrix4::Perspective(1.0f, 25000.0f, (float)width / (float)height, 45.0f);
 
 	
 
@@ -125,7 +130,7 @@ void Renderer::RenderScene() {
 	DrawWater();
 	DrawShadowScene();
 	viewMatrix = camera->BuildViewMatrix();
-	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
+	projMatrix = Matrix4::Perspective(1.0f, 25000.0f, (float)width / (float)height, 45.0f);
 }
 
 void Renderer::DrawShadowScene() {
@@ -138,7 +143,7 @@ void Renderer::DrawShadowScene() {
 	BindShader(shadowShader);
 	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0.2f, 0.1f, 0.2f));
 
-	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
+	projMatrix = Matrix4::Perspective(1.0f, 10000.0f, (float)width / (float)height, 164.0f);
 	shadowMatrix = projMatrix * viewMatrix;
 	
 	//modelMatrix.ToIdentity()
