@@ -3,6 +3,7 @@
 #include "Vector3.h"
 #include "Vector4.h"
 #include "Mesh.h"
+#include "MeshMaterial.h"
 #include <vector>
 
 class SceneNode{
@@ -32,6 +33,9 @@ public:
 	void			SetTexture(GLuint tex)		{ texture = tex; }
 	GLuint			GetTexture()		const	{ return texture; }
 
+	void			SetMaterial(MeshMaterial* mat) { meshMaterial = mat; }
+	MeshMaterial*	GetMaterial()		const	{ return meshMaterial; }
+
 	static bool CompareByCameraDistance(SceneNode* a, SceneNode* b) {
 		return (a->distanceFromCamera < b->distanceFromCamera) ? true : false;
 	}
@@ -47,6 +51,7 @@ public:
 protected:
 	SceneNode* parent;
 	Mesh* mesh;
+	MeshMaterial* meshMaterial;
 	Matrix4 worldTransform;
 	Matrix4 transform;
 	Vector3 modelScale;

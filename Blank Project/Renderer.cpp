@@ -5,8 +5,9 @@
 #include "../nclgl/Camera.h"
 #include "../nclgl/MeshAnimation.h"
 #include "../nclgl/MeshMaterial.h"
+#include <algorithm>
 
-#define SHADOWSIZE 4096
+#define SHADOWSIZE 8192
 
 Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	
@@ -19,6 +20,8 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	shadowShader = new Shader("shadowVert.glsl", "shadowFrag.glsl");
 
 	cubeShader = new Shader("TexturedVertex.glsl", "TexturedFragment.glsl");
+
+	flatTexShader = new Shader("noBumpShadowSceneVert.glsl", "noBumpShadowSceneFrag.glsl");
 
 	if (!reflectShader->LoadSuccess() || !skyboxShader->LoadSuccess() || !lightShader->LoadSuccess() || !shadowShader->LoadSuccess() || !cubeShader->LoadSuccess()) {
 		return;
@@ -41,6 +44,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	glDrawBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	root = new SceneNode();
 
 	quad = Mesh::GenerateQuad();
 
@@ -50,6 +54,8 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	fishAnim = new MeshAnimation("bass2.anm");
 	fishMat = new MeshMaterial("bass2.mat");
 
+	boat = Mesh::LoadFromMeshFile("boat_v3.msh");
+	//boatMat = new MeshMaterial("boat_v4.mat");
 
 	heightMap = new HeightMap(TEXTUREDIR"noise2.png");
 
@@ -63,6 +69,8 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	squareBump = SOIL_load_OGL_texture(TEXTUREDIR"brickDOT3.tga", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
+	boatTex = SOIL_load_OGL_texture(TEXTUREDIR"Planks037A.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
 	cubeMap = SOIL_load_OGL_cubemap(TEXTUREDIR"rusted_west.jpg", TEXTUREDIR"rusted_east.jpg",
 		TEXTUREDIR"rusted_up.jpg", TEXTUREDIR"rusted_down.jpg", TEXTUREDIR"rusted_south.jpg",
 		TEXTUREDIR"rusted_north.jpg", SOIL_LOAD_RGB, SOIL_CREATE_NEW_ID, 0);
@@ -75,6 +83,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	setTextureRepeating(earthBump, true);
 	setTextureRepeating(waterTex, true);
 	setTextureRepeating(squareTex, true);
+	setTextureRepeating(boatTex, true);
 	
 
 	Vector3 heightmapSize = heightMap->GetHeightmapSize();
@@ -83,7 +92,18 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	light = new Light(heightmapSize * Vector3(1.0f, 3.5f, 0.0f), Vector4(1, 1, 1, 1), 2.0f * heightmapSize.x);
 
-	projMatrix = Matrix4::Perspective(1.0f, 25000.0f, (float)width / (float)height, 45.0f);
+	projMatrix = Matrix4::Perspective(0.1f, 25000.0f, (float)width / (float)height, 45.0f);
+
+	for (int i = 0; i < 5; ++i) {
+		SceneNode* b = new SceneNode();
+		b->SetTransform(Matrix4::Translation(heightmapSize * Vector3(0.8f, 0.5f, 0.4f + 0.03 * i)));
+		b->SetModelScale(Vector3(50.0f, 50.0f, 50.0f));
+		b->SetBoundingRadius(300.0f);
+		b->SetMesh(boat);
+		b->SetTexture(boatTex);
+		root->AddChild(b);
+	}
+
 
 	
 
@@ -108,21 +128,51 @@ Renderer::~Renderer(void) {
 	delete skyboxShader;
 	delete lightShader;
 	delete shadowShader;
+	delete cubeShader;
+	delete flatTexShader;
 	delete light;
+
+	delete fish;
+	delete fishAnim;
+	delete fishMat;
+
+	delete root;
 
 }
 void Renderer::UpdateScene(float dt) {
 	camera->UpdateCamera(dt);
-	//viewMatrix = camera->BuildViewMatrix();
+	viewMatrix = camera->BuildViewMatrix();
+	frameFrustum.FromMatrix(projMatrix * viewMatrix);
 	waterRotate += dt * 0.2f;
 	waterCycle += dt * 0.05f;
 	waterBob = sin(dt);
+	root->Update(dt);
+}
+void Renderer::BuildNodeLists(SceneNode* from) {
+	bool renderCheck = true;
+	if (frameFrustum.InsideFrustum(*from)) {
+		Vector3 dir = from->GetWorldTransform().GetPositionVector() - camera->GetPosition();
+		from->SetCameraDistance(Vector3::Dot(dir, dir));
 
+		if (from->GetColour().w < 1.0f) {
+			transparentNodeList.push_back(from);
+		}
+		else {
+			nodeList.push_back(from);
+		}
+	}
+	for (vector<SceneNode*>::const_iterator i = from->GetChildIteratorStart(); i != from->GetChildIteratorEnd(); ++i) {
+		BuildNodeLists((*i));
+	}
+}
+void Renderer::SortNodeLists() {
+	std::sort(transparentNodeList.rbegin(), transparentNodeList.rend(), SceneNode::CompareByCameraDistance);
+	std::sort(nodeList.rbegin(), nodeList.rend(), SceneNode::CompareByCameraDistance);
 }
 void Renderer::RenderScene() {
+	BuildNodeLists(root);
+	SortNodeLists();
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-
-	
 
 	DrawSkybox();
 	DrawHeightmap();
@@ -130,9 +180,18 @@ void Renderer::RenderScene() {
 	DrawWater();
 	DrawShadowScene();
 	viewMatrix = camera->BuildViewMatrix();
-	projMatrix = Matrix4::Perspective(1.0f, 25000.0f, (float)width / (float)height, 45.0f);
+	projMatrix = Matrix4::Perspective(0.1f, 25000.0f, (float)width / (float)height, 45.0f);
+	DrawNodes();
+	ClearNodeLists();
 }
-
+void Renderer::DrawNodes() {
+	for (const auto& i : nodeList) {
+		DrawNode(i);
+	}
+	for (const auto& i : transparentNodeList) {
+		DrawNode(i);
+	}
+}
 void Renderer::DrawShadowScene() {
 	glBindFramebuffer(GL_FRAMEBUFFER, shadowFBO);
 
@@ -143,14 +202,20 @@ void Renderer::DrawShadowScene() {
 	BindShader(shadowShader);
 	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0.2f, 0.1f, 0.2f));
 
-	projMatrix = Matrix4::Perspective(1.0f, 10000.0f, (float)width / (float)height, 164.0f);
+	projMatrix = Matrix4::Perspective(0.1f, 10000.0f, (float)width / (float)height, 164.0f);
 	shadowMatrix = projMatrix * viewMatrix;
 	
-	//modelMatrix.ToIdentity()
+	//Remember to add scene node loop later
 	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.4f, 2.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f, 100.0f, 100.0f));
 	UpdateShaderMatrices();
 	
 	test->Draw();
+
+	for (const auto& i : nodeList) {
+		modelMatrix = i->GetWorldTransform() * Matrix4::Scale(i->GetModelScale());
+		UpdateShaderMatrices();
+		DrawNode(i);
+	}
 
 	modelMatrix.ToIdentity();
 	UpdateShaderMatrices();
@@ -162,7 +227,38 @@ void Renderer::DrawShadowScene() {
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+void Renderer::DrawNode(SceneNode* n) {
+	if (n->GetMesh()) {
+		Matrix4 model = n->GetWorldTransform() * Matrix4::Scale(n->GetModelScale());
+		/*
+		glUniformMatrix4fv(glGetUniformLocation(shader->GetProgram(), "modelMatrix"), 1, false, model.values);
+		glUniform4fv(glGetUniformLocation(shader->GetProgram(), "nodeColour"), 1, (float*)&n->GetColour());
 
+		texture = n->GetTexture();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture);
+
+		glUniform1i(glGetUniformLocation(shader->GetProgram(), "useTexture"), texture);
+		*/
+		BindShader(flatTexShader);
+		SetShaderLight(*light);
+
+		glUniform1i(glGetUniformLocation(flatTexShader->GetProgram(), "diffuseTex"), 0);
+		texture = n->GetTexture();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture);
+
+		glUniform1i(glGetUniformLocation(flatTexShader->GetProgram(), "shadowTex"), 2);
+
+		glUniform3fv(glGetUniformLocation(flatTexShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, shadowTex);
+
+		modelMatrix = model;
+		UpdateShaderMatrices();
+		n->Draw(*this);
+	}
+}
 void Renderer::DrawSkybox() {
 	glDepthMask(GL_FALSE);
 
@@ -252,4 +348,8 @@ void Renderer::DrawWater() {
 	UpdateShaderMatrices();
 
 	quad->Draw();
+}
+void Renderer::ClearNodeLists() {
+	transparentNodeList.clear();
+	nodeList.clear();
 }
