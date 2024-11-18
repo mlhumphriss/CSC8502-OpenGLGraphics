@@ -90,7 +90,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	camera = new Camera(-45.0f, 0.0f, heightmapSize * Vector3(0.5f, 5.0f, 0.5f));
 
-	light = new Light(heightmapSize * Vector3(1.0f, 3.5f, 0.0f), Vector4(1, 1, 1, 1), 2.0f * heightmapSize.x);
+	light = new Light(heightmapSize * Vector3(1.0f, 2.0f, 0.0f), Vector4(1, 1, 1, 1), 2.5f * heightmapSize.x);
 
 	projMatrix = Matrix4::Perspective(0.1f, 25000.0f, (float)width / (float)height, 45.0f);
 
@@ -202,7 +202,7 @@ void Renderer::DrawShadowScene() {
 	BindShader(shadowShader);
 	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0.2f, 0.1f, 0.2f));
 
-	projMatrix = Matrix4::Perspective(0.1f, 10000.0f, (float)width / (float)height, 164.0f);
+	projMatrix = Matrix4::Perspective(0.1f, 2500.0f, (float)width / (float)height, 164.0f);
 	shadowMatrix = projMatrix * viewMatrix;
 	
 	//Remember to add scene node loop later
