@@ -202,7 +202,7 @@ void Renderer::DrawShadowScene() {
 	BindShader(shadowShader);
 	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0.2f, 0.1f, 0.2f));
 
-	projMatrix = Matrix4::Perspective(0.1f, 2500.0f, (float)width / (float)height, 164.0f);
+	projMatrix = /*Matrix4::Rotation(45.0f, Vector3(0, 1, 0)) */ Matrix4::Perspective(0.1f, 2500.0f, (float)width / (float)height, 150.0f);
 	shadowMatrix = projMatrix * viewMatrix;
 	
 	//Remember to add scene node loop later
