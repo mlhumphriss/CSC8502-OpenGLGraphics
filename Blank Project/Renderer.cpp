@@ -23,6 +23,8 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	flatTexShader = new Shader("noBumpShadowSceneVert.glsl", "noBumpShadowSceneFrag.glsl");
 
+	skelShader = new Shader("SkinningVertex.glsl","TexturedFragment");
+
 	if (!reflectShader->LoadSuccess() || !skyboxShader->LoadSuccess() || !lightShader->LoadSuccess() || !shadowShader->LoadSuccess() || !cubeShader->LoadSuccess()) {
 		return;
 	}
@@ -49,10 +51,27 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	quad = Mesh::GenerateQuad();
 
 	test = Mesh::LoadFromMeshFile("Cube.msh");
+	
 
-	fish = Mesh::LoadFromMeshFile("bass2.msh");
-	fishAnim = new MeshAnimation("bass2.anm");
-	fishMat = new MeshMaterial("bass2.mat");
+	fish = Mesh::LoadFromMeshFile("Role_T.msh");
+	fishAnim = new MeshAnimation("Role_T.anm");
+	fishMat = new MeshMaterial("Role_T.mat");
+	//*
+	for (int i = 0; i < fish->GetSubMeshCount(); ++i) {
+		const MeshMaterialEntry* matEntry = fishMat->GetMaterialForLayer(i);
+
+		const string* filename = nullptr;
+
+		matEntry->GetEntry("Diffuse", &filename);
+		string path = TEXTUREDIR + *filename;
+		GLuint texID = SOIL_load_OGL_texture(path.c_str(), SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y);
+
+		matTextures.emplace_back(texID);
+	}
+	//*/
+	currentFrame = 0;
+	frameTime = 0.0f;
+
 
 	boat = Mesh::LoadFromMeshFile("boat_v3.msh");
 	//boatMat = new MeshMaterial("boat_v4.mat");
@@ -130,6 +149,7 @@ Renderer::~Renderer(void) {
 	delete shadowShader;
 	delete cubeShader;
 	delete flatTexShader;
+	delete skelShader;
 	delete light;
 
 	delete fish;
@@ -147,6 +167,11 @@ void Renderer::UpdateScene(float dt) {
 	waterCycle += dt * 0.05f;
 	waterBob = sin(dt);
 	root->Update(dt);
+	frameTime -= dt;
+	while (frameTime < 0.0f) {
+		currentFrame = (currentFrame + 1) % fishAnim->GetFrameCount();
+		frameTime += 1.0f / fishAnim->GetFrameRate();
+	}
 }
 void Renderer::BuildNodeLists(SceneNode* from) {
 	bool renderCheck = true;
@@ -178,6 +203,7 @@ void Renderer::RenderScene() {
 	DrawHeightmap();
 	DrawCube();
 	DrawWater();
+	//RenderMeshMat();
 	DrawShadowScene();
 	viewMatrix = camera->BuildViewMatrix();
 	projMatrix = Matrix4::Perspective(0.1f, 25000.0f, (float)width / (float)height, 45.0f);
@@ -202,11 +228,11 @@ void Renderer::DrawShadowScene() {
 	BindShader(shadowShader);
 	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0.2f, 0.1f, 0.2f));
 
-	projMatrix = /*Matrix4::Rotation(45.0f, Vector3(0, 1, 0)) */ Matrix4::Perspective(0.1f, 2500.0f, (float)width / (float)height, 150.0f);
+	projMatrix = /*Matrix4::Rotation(45.0f, Vector3(0, 1, 0)) */ Matrix4::Perspective(1.0f, 2500.0f, (float)width / (float)height, 45.0f);
 	shadowMatrix = projMatrix * viewMatrix;
 	
 	//Remember to add scene node loop later
-	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.4f, 2.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f, 100.0f, 100.0f));
+	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(1.0f, 1.0f, 0.0f)) * Matrix4::Scale(Vector3(100.0f, 100.0f, 100.0f));
 	UpdateShaderMatrices();
 	
 	test->Draw();
@@ -319,7 +345,7 @@ void Renderer::DrawCube() {
 	glBindTexture(GL_TEXTURE_2D, shadowTex);
 	
 
-	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.4f, 2.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f,100.0f,100.0f));
+	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(1.0f, 1.0f, 0.0f)) * Matrix4::Scale(Vector3(100.0f,100.0f,100.0f));
 	UpdateShaderMatrices();
 	test->Draw();
 }
@@ -352,4 +378,31 @@ void Renderer::DrawWater() {
 void Renderer::ClearNodeLists() {
 	transparentNodeList.clear();
 	nodeList.clear();
+}
+void Renderer::RenderMeshMat() {
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+	BindShader(skelShader);
+	glUniform1i(glGetUniformLocation(skelShader->GetProgram(), "diffuseTex"), 0);
+
+
+	UpdateShaderMatrices();
+
+	vector<Matrix4> frameMatrices;
+
+	const Matrix4* invBindPose = fish->GetInverseBindPose();
+	const Matrix4* frameData = fishAnim->GetJointData(currentFrame);
+
+	for (unsigned int i = 0; i < fish->GetJointCount(); ++i) {
+		frameMatrices.emplace_back(frameData[i] * invBindPose[i]);
+	}
+
+	int j = glGetUniformLocation(skelShader->GetProgram(), "joints");
+	glUniformMatrix4fv(j, frameMatrices.size(), false, (float*)frameMatrices.data());
+
+	for (int i = 0; i < fish->GetSubMeshCount(); ++i) {
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, matTextures[i]);
+		fish->DrawSubMesh(i);
+	}
 }

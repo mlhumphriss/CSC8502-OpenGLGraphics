@@ -50,11 +50,16 @@ void main(void){
 			shadow = 0.0f;
 		}
 	}
+	float fog = (length((cameraPos) - IN.worldPos)/5000.0f);
+	if (fog > 1.0f){
+		fog = 1.0f;
+	}
 	vec3 surface   = (diffuse.rgb * lightColour.rgb);
 	fragColour.rgb = surface * attenuation *lambert;
 	fragColour.rgb+= (lightColour.rgb*attenuation*specFactor)*0.33;
 	fragColour.rgb*= shadow;
 	fragColour.rgb+= surface*0.1f;
 	fragColour.a   = diffuse.a;
+	fragColour = mix(fragColour, vec4(1, 1, 1, 1), fog);
 	
 }

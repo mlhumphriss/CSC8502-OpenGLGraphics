@@ -5,6 +5,7 @@
 class Camera;
 class Shader;
 class HeightMap;
+class Mesh;
 class MeshAnimation;
 class MeshMaterial;
 class SceneNode;
@@ -28,6 +29,7 @@ protected:
 	void DrawCube();
 	void DrawNodes();
 	void DrawNode(SceneNode* n);
+	void RenderMeshMat();
 
 	Shader* lightShader;
 	Shader* reflectShader;
@@ -35,11 +37,13 @@ protected:
 	Shader* shadowShader;
 	Shader* cubeShader;
 	Shader* flatTexShader;
+	Shader* skelShader;
 
 	GLuint shadowTex;
 	GLuint shadowFBO;
 	GLuint texture;
 	MeshMaterial* meshMaterial;
+
 
 	HeightMap* heightMap;
 	Mesh* quad;
@@ -57,6 +61,7 @@ protected:
 	Mesh* fish;
 	MeshAnimation* fishAnim;
 	MeshMaterial* fishMat;
+	vector<GLuint> matTextures;
 
 	Mesh* boat;
 	MeshMaterial* boatMat;
@@ -74,4 +79,6 @@ protected:
 	float waterRotate;
 	float waterCycle;
 	float waterBob;
+	int currentFrame;
+	float frameTime;
 };
