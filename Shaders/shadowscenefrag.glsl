@@ -50,10 +50,8 @@ void main(void){
 			shadow = 0.0f;
 		}
 	}
-	float fog = (length((cameraPos) - IN.worldPos)/5000.0f);
-	if (fog > 1.0f){
-		fog = 1.0f;
-	}
+	float fog = clamp((length((cameraPos) - IN.worldPos)/5000.0f),0.0,1.0);
+
 	vec3 surface   = (diffuse.rgb * lightColour.rgb);
 	fragColour.rgb = surface * attenuation *lambert;
 	fragColour.rgb+= (lightColour.rgb*attenuation*specFactor)*0.33;
