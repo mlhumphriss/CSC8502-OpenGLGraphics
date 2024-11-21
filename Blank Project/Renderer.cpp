@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #define SHADOWSIZE 8192
+const int POST_PASSES = 2;
 
 Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	
@@ -23,7 +24,11 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	flatTexShader = new Shader("noBumpShadowSceneVert.glsl", "noBumpShadowSceneFrag.glsl");
 
-	skelShader = new Shader("SkinningVertex.glsl","TexturedFragment");
+	skelShader = new Shader("SkinningVertex.glsl", "TexturedFragment.glsl");
+
+	processShader = new Shader("TexVertex.glsl", "shadowProcessFrag.glsl");
+
+	sceneShader = new Shader("TexturedVertex.glsl", "TexturedFragment.glsl");
 
 	if (!reflectShader->LoadSuccess() || !skyboxShader->LoadSuccess() || !lightShader->LoadSuccess() || !shadowShader->LoadSuccess() || !cubeShader->LoadSuccess()) {
 		return;
@@ -38,25 +43,57 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOWSIZE, SHADOWSIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
-
+	
 	glGenFramebuffers(1, &shadowFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, shadowFBO);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTex, 0);
 
 	glDrawBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	/*
+	glGenTextures(1, &bufferDepthTex);
+	glBindTexture(GL_TEXTURE_2D, bufferDepthTex);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
 
+	for (int i = 0; i < 2; ++i) {
+		glGenTextures(1, &bufferColourTex[i]);
+		glBindTexture(GL_TEXTURE_2D, bufferColourTex[i]);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	}
+
+	glGenFramebuffers(1, &bufferFBO);
+	glGenFramebuffers(1, &processFBO);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, bufferDepthTex, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, bufferDepthTex, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[0], 0);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE || !bufferDepthTex || !bufferColourTex[0]) {
+		return;
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	*/
 	root = new SceneNode();
 
 	quad = Mesh::GenerateQuad();
+	quad2 = Mesh::GenerateQuad();
 
 	test = Mesh::LoadFromMeshFile("Cube.msh");
-	
 
 	fish = Mesh::LoadFromMeshFile("Role_T.msh");
 	fishAnim = new MeshAnimation("Role_T.anm");
 	fishMat = new MeshMaterial("Role_T.mat");
-	//*
+	
 	for (int i = 0; i < fish->GetSubMeshCount(); ++i) {
 		const MeshMaterialEntry* matEntry = fishMat->GetMaterialForLayer(i);
 
@@ -68,10 +105,9 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 		matTextures.emplace_back(texID);
 	}
-	//*/
+	
 	currentFrame = 0;
 	frameTime = 0.0f;
-
 
 	boat = Mesh::LoadFromMeshFile("boat_v3.msh");
 	boatMat = new MeshMaterial("boat_v4.mat");
@@ -79,46 +115,51 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	lHouse = Mesh::LoadFromMeshFile("LightHouse.msh");
 	lHouseMat = new MeshMaterial("LightHouse.mat");
 
+
+	//house13 = Mesh::LoadFromMeshFile("013Smallhouse1f52m2.msh");
+	//house13Mat = new MeshMaterial("013Smallhouse1f52m2.mat");
+
 	heightMap = new HeightMap(TEXTUREDIR"noise2.png");
 
 	waterTex = SOIL_load_OGL_texture(TEXTUREDIR"water.TGA", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
-	earthTex = SOIL_load_OGL_texture(TEXTUREDIR"Barren Reds.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+	earthTex = SOIL_load_OGL_texture(TEXTUREDIR"Rock3.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
-	earthBump = SOIL_load_OGL_texture(TEXTUREDIR"Barren RedsDOT3.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+	earthBump = SOIL_load_OGL_texture(TEXTUREDIR"Rock3Bump.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
-	squareTex = SOIL_load_OGL_texture(TEXTUREDIR"brick.tga", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+	brickWallTex = SOIL_load_OGL_texture(TEXTUREDIR"Brick_Wall_DIFF.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
-	squareBump = SOIL_load_OGL_texture(TEXTUREDIR"brickDOT3.tga", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+	brickWallBump = SOIL_load_OGL_texture(TEXTUREDIR"Brick_Wall_DISP.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
-	boatTex = SOIL_load_OGL_texture(TEXTUREDIR"Planks037A.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+	boatTex = SOIL_load_OGL_texture(TEXTUREDIR"Planks_01_DIFF.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
 	cubeMap = SOIL_load_OGL_cubemap(TEXTUREDIR"rusted_west.jpg", TEXTUREDIR"rusted_east.jpg",
 		TEXTUREDIR"rusted_up.jpg", TEXTUREDIR"rusted_down.jpg", TEXTUREDIR"rusted_south.jpg",
 		TEXTUREDIR"rusted_north.jpg", SOIL_LOAD_RGB, SOIL_CREATE_NEW_ID, 0);
 
-	if (!earthTex || !earthBump || !cubeMap || !waterTex || !squareTex) {
+	if (!earthTex || !earthBump || !cubeMap || !waterTex || !boatTex || !brickWallTex || !brickWallBump) {
 		return;
 	}
 
 	setTextureRepeating(earthTex, true);
 	setTextureRepeating(earthBump, true);
 	setTextureRepeating(waterTex, true);
-	setTextureRepeating(squareTex, true);
 	setTextureRepeating(boatTex, true);
+	setTextureRepeating(brickWallTex, true);
+	setTextureRepeating(brickWallBump, true);
 	
 
 	Vector3 heightmapSize = heightMap->GetHeightmapSize();
 
 	camera = new Camera(-45.0f, 0.0f, heightmapSize * Vector3(0.5f, 5.0f, 0.5f));
 
-	light = new Light(heightmapSize * Vector3(1.0f, 2.0f, 0.0f), Vector4(1, 1, 1, 1), 2.5f * heightmapSize.x);
+	light = new Light(heightmapSize * Vector3(2.0f, 10.0f, -1.0f), Vector4(1, 1, 1, 1), 4.0f * heightmapSize.x);
 
 	projMatrix = Matrix4::Perspective(0.1f, 25000.0f, (float)width / (float)height, 45.0f);
 
 	for (int i = 0; i < 5; ++i) {
 		SceneNode* b = new SceneNode();
-		b->SetTransform(Matrix4::Translation(heightmapSize * Vector3(0.8f, 0.5f, 0.4f + 0.03 * i)));
+		b->SetTransform(Matrix4::Translation(heightmapSize * Vector3(0.68f + 0.02 *i, 0.5f, 0.4f + 0.03 * i)));
 		b->SetModelScale(Vector3(50.0f, 50.0f, 50.0f));
 		b->SetBoundingRadius(300.0f);
 		b->SetMesh(boat);
@@ -127,13 +168,23 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	}
 
 	SceneNode* l = new SceneNode();
-	l->SetTransform(Matrix4::Translation(heightmapSize* Vector3(0.0f, 3.0f, 0.0f)));
-	l->SetModelScale(Vector3(1000.0f, 1000.0f, 1000.0f));
-	l->SetBoundingRadius(400.0f);
+	l->SetTransform(Matrix4::Translation(heightmapSize* Vector3(0.03f, 0.9f, 0.8f)));
+	l->SetModelScale(Vector3(15.0f, 15.0f, 15.0f));
+	l->SetBoundingRadius(800.0f);
 	l->SetMesh(lHouse);
-	l->SetTexture(squareTex);
+	l->SetTexture(brickWallTex);
 	root->AddChild(l);
 
+	/*
+	SceneNode* h = new SceneNode();
+	h->SetTransform(Matrix4::Translation(heightmapSize * Vector3(0.9f, 0.95f, 0.8f)));
+	h->SetModelScale(Vector3(2.0f, 2.0f, 2.0f));
+	h->SetBoundingRadius(400.0f);
+	h->SetMesh(house13);
+	h->SetTexture(boatTex);
+	root->AddChild(h);
+	*/
+	
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -147,6 +198,12 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 Renderer::~Renderer(void) {
 	glDeleteTextures(1, &shadowTex);
 	glDeleteFramebuffers(1, &shadowFBO);
+	/*
+	glDeleteTextures(2, bufferColourTex);
+	glDeleteTextures(1, &bufferDepthTex);
+	glDeleteFramebuffers(1, &bufferFBO);
+	glDeleteFramebuffers(1, &processFBO);
+	*/
 
 	delete camera;
 	delete heightMap;
@@ -159,6 +216,9 @@ Renderer::~Renderer(void) {
 	delete cubeShader;
 	delete flatTexShader;
 	delete skelShader;
+	delete sceneShader;
+	delete processShader;
+
 	delete light;
 
 	delete fish;
@@ -168,6 +228,8 @@ Renderer::~Renderer(void) {
 	delete boatMat;
 	delete lHouse;
 	delete lHouseMat;
+	//delete house13;
+	//delete house13Mat;
 
 	delete root;
 
@@ -178,7 +240,7 @@ void Renderer::UpdateScene(float dt) {
 	frameFrustum.FromMatrix(projMatrix * viewMatrix);
 	waterRotate += dt * 0.2f;
 	waterCycle += dt * 0.05f;
-	waterBob = sin(dt);
+	waterBob = 10.0f*  sin(dt);
 	root->Update(dt);
 	frameTime -= dt;
 	while (frameTime < 0.0f) {
@@ -210,17 +272,26 @@ void Renderer::SortNodeLists() {
 void Renderer::RenderScene() {
 	BuildNodeLists(root);
 	SortNodeLists();
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+	//glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
+	//glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT /**/ | GL_STENCIL_BUFFER_BIT/**/);
 
 	DrawSkybox();
 	DrawHeightmap();
 	DrawCube();
 	DrawWater();
 	//RenderMeshMat();
+	DrawNodes();
+	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	DrawShadowScene();
 	viewMatrix = camera->BuildViewMatrix();
 	projMatrix = Matrix4::Perspective(0.1f, 25000.0f, (float)width / (float)height, 45.0f);
-	DrawNodes();
+	
+	/*
+	DrawPostprocess();
+	PresentScene();
+	*/
 	ClearNodeLists();
 }
 void Renderer::DrawNodes() {
@@ -241,11 +312,11 @@ void Renderer::DrawShadowScene() {
 	BindShader(shadowShader);
 	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0.2f, 0.1f, 0.2f));
 
-	projMatrix = /*Matrix4::Rotation(45.0f, Vector3(0, 1, 0)) */ Matrix4::Perspective(1.0f, 2500.0f, (float)width / (float)height, 164.0f);
+	projMatrix = Matrix4::Perspective(0.1f, 15000.0f, (float)width / (float)height, 45.0f);
 	shadowMatrix = projMatrix * viewMatrix;
 	
 	//Remember to add scene node loop later
-	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(1.0f, 1.0f, 0.0f)) * Matrix4::Scale(Vector3(100.0f, 100.0f, 100.0f));
+	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.4f, 2.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f, 100.0f, 100.0f));
 	UpdateShaderMatrices();
 	
 	test->Draw();
@@ -345,11 +416,11 @@ void Renderer::DrawCube() {
 
 	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "diffuseTex"), 0);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, squareTex);
+	glBindTexture(GL_TEXTURE_2D, brickWallTex);
 
 	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "bumpTex"), 1);
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, squareBump);
+	glBindTexture(GL_TEXTURE_2D, brickWallBump);
 
 	glUniform1i(glGetUniformLocation(lightShader->GetProgram(), "shadowTex"), 2);
 	glUniform3fv(glGetUniformLocation(lightShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
@@ -358,7 +429,7 @@ void Renderer::DrawCube() {
 	glBindTexture(GL_TEXTURE_2D, shadowTex);
 	
 
-	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(1.0f, 1.0f, 0.0f)) * Matrix4::Scale(Vector3(100.0f,100.0f,100.0f));
+	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.4f, 2.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f,100.0f,100.0f));
 	UpdateShaderMatrices();
 	test->Draw();
 }
@@ -379,7 +450,7 @@ void Renderer::DrawWater() {
 
 	Vector3 hSize = heightMap->GetHeightmapSize();
 
-	modelMatrix = (Matrix4::Translation(hSize * 0.5f) /* Matrix4::Translation(Vector3(1.0f, 50.0f*waterBob,1.0f))*/) * Matrix4::Scale(hSize * 0.5f) * Matrix4::Rotation(90, Vector3(1, 0, 0));
+	modelMatrix = (Matrix4::Translation(hSize * 0.5f) /* Matrix4::Translation(Vector3(1.0f, 50.0f * waterBob, 1.0f)))*/ * Matrix4::Scale(hSize * 0.5f) * Matrix4::Rotation(90, Vector3(1, 0, 0)));
 
 	textureMatrix = Matrix4::Translation(Vector3(waterCycle, 0.0f, waterCycle)) * Matrix4::Scale(Vector3(10, 10, 10))
 		* Matrix4::Rotation(waterRotate, Vector3(0, 0, 1));
@@ -392,9 +463,9 @@ void Renderer::ClearNodeLists() {
 	transparentNodeList.clear();
 	nodeList.clear();
 }
-/*
+
 void Renderer::RenderMeshMat() {
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	//glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
 	BindShader(skelShader);
 	glUniform1i(glGetUniformLocation(skelShader->GetProgram(), "diffuseTex"), 0);
@@ -419,4 +490,61 @@ void Renderer::RenderMeshMat() {
 		glBindTexture(GL_TEXTURE_2D, matTextures[i]);
 		fish->DrawSubMesh(i);
 	}
-}*/
+}
+/**/
+void Renderer::DrawPostprocess() {
+	glBindFramebuffer(GL_FRAMEBUFFER, processFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[1], 0);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+	BindShader(processShader);
+	modelMatrix.ToIdentity();
+	viewMatrix.ToIdentity();
+	projMatrix.ToIdentity();
+	UpdateShaderMatrices();
+
+	glDisable(GL_DEPTH_TEST);
+
+	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(glGetUniformLocation(processShader->GetProgram(), "sceneTex"), 0);
+
+	for (int i = 0; i < POST_PASSES; ++i) {
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[1], 0);
+
+		glUniform1i(glGetUniformLocation(processShader->GetProgram(), "isVertical"), 0);
+
+		glBindTexture(GL_TEXTURE_2D, bufferColourTex[0]);
+
+		quad2->Draw();
+
+		glUniform1i(glGetUniformLocation(processShader->GetProgram(), "isVertical"), 1);
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[0], 0);
+
+		glBindTexture(GL_TEXTURE_2D, bufferColourTex[1]);
+
+		quad2->Draw();
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glEnable(GL_DEPTH_TEST);
+}
+void Renderer::PresentScene() {
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+	BindShader(sceneShader);
+	modelMatrix.ToIdentity();
+	viewMatrix.ToIdentity();
+	projMatrix.ToIdentity();
+	UpdateShaderMatrices();
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, bufferColourTex[0]);
+	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "diffuseTex"), 0);
+
+
+
+	quad2->Draw();
+}
+//*/
