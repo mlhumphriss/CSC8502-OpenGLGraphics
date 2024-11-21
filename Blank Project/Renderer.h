@@ -29,7 +29,7 @@ protected:
 	void DrawCube();
 	void DrawNodes();
 	void DrawNode(SceneNode* n);
-	//void RenderMeshMat();
+	void RenderMeshMat();
 
 	Shader* lightShader;
 	Shader* reflectShader;
@@ -66,6 +66,9 @@ protected:
 	Mesh* lHouse;
 	MeshMaterial* lHouseMat;
 
+	Mesh* house13;
+	MeshMaterial* house13Mat;
+
 	Mesh* boat;
 	MeshMaterial* boatMat;
 
@@ -77,6 +80,8 @@ protected:
 	GLuint squareTex;
 	GLuint squareBump;
 	GLuint boatTex;
+	GLuint brickWallTex;
+	GLuint brickWallBump;
 
 
 	float waterRotate;
