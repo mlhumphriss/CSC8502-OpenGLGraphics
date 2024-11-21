@@ -53,26 +53,6 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	test = Mesh::LoadFromMeshFile("Cube.msh");
 	
 
-	fish = Mesh::LoadFromMeshFile("Role_T.msh");
-	fishAnim = new MeshAnimation("Role_T.anm");
-	fishMat = new MeshMaterial("Role_T.mat");
-	//*
-	for (int i = 0; i < fish->GetSubMeshCount(); ++i) {
-		const MeshMaterialEntry* matEntry = fishMat->GetMaterialForLayer(i);
-
-		const string* filename = nullptr;
-
-		matEntry->GetEntry("Diffuse", &filename);
-		string path = TEXTUREDIR + *filename;
-		GLuint texID = SOIL_load_OGL_texture(path.c_str(), SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y);
-
-		matTextures.emplace_back(texID);
-	}
-	//*/
-	currentFrame = 0;
-	frameTime = 0.0f;
-
-
 	boat = Mesh::LoadFromMeshFile("boat_v3.msh");
 	boatMat = new MeshMaterial("boat_v4.mat");
 
@@ -126,13 +106,6 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 		root->AddChild(b);
 	}
 
-	SceneNode* l = new SceneNode();
-	l->SetTransform(Matrix4::Translation(heightmapSize* Vector3(0.0f, 3.0f, 0.0f)));
-	l->SetModelScale(Vector3(100.0f, 100.0f, 100.0f));
-	l->SetBoundingRadius(400.0f);
-	l->SetMesh(lHouse);
-	l->SetTexture(squareTex);
-	root->AddChild(l);
 
 
 	glEnable(GL_DEPTH_TEST);
@@ -158,7 +131,6 @@ Renderer::~Renderer(void) {
 	delete shadowShader;
 	delete cubeShader;
 	delete flatTexShader;
-	delete skelShader;
 	delete light;
 
 	delete fish;
@@ -180,10 +152,7 @@ void Renderer::UpdateScene(float dt) {
 	waterCycle += dt * 0.05f;
 	waterBob = sin(dt);
 	root->Update(dt);
-	frameTime -= dt;
-	while (frameTime < 0.0f) {
-		currentFrame = (currentFrame + 1) % fishAnim->GetFrameCount();
-		frameTime += 1.0f / fishAnim->GetFrameRate();
+
 	}
 }
 void Renderer::BuildNodeLists(SceneNode* from) {
