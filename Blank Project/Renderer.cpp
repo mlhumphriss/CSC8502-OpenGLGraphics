@@ -153,7 +153,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	camera = new Camera(-45.0f, 0.0f, heightmapSize * Vector3(0.5f, 5.0f, 0.5f));
 
-	light = new Light(heightmapSize * Vector3(2.0f, 10.0f, -1.0f), Vector4(1, 1, 1, 1), 5.0f * heightmapSize.x);
+	light = new Light(heightmapSize * Vector3(2.0f, 10.0f, -1.0f), Vector4(1, 1, 1, 1), 4.0f * heightmapSize.x);
 
 	projMatrix = Matrix4::Perspective(0.1f, 25000.0f, (float)width / (float)height, 45.0f);
 
@@ -273,8 +273,8 @@ void Renderer::RenderScene() {
 	BuildNodeLists(root);
 	SortNodeLists();
 
-	glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT /**/ | GL_STENCIL_BUFFER_BIT/**/);
+	//glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
+	//glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT /**/ | GL_STENCIL_BUFFER_BIT/**/);
 
 	DrawSkybox();
 	DrawHeightmap();
