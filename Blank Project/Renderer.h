@@ -30,6 +30,8 @@ protected:
 	void DrawNodes();
 	void DrawNode(SceneNode* n);
 	void RenderMeshMat();
+	void PresentScene();
+	void DrawPostprocess();
 
 	Shader* lightShader;
 	Shader* reflectShader;
@@ -38,6 +40,8 @@ protected:
 	Shader* cubeShader;
 	Shader* flatTexShader;
 	Shader* skelShader;
+	Shader* processShader;
+	Shader* sceneShader;
 
 	GLuint shadowTex;
 	GLuint shadowFBO;
@@ -47,6 +51,7 @@ protected:
 
 	HeightMap* heightMap;
 	Mesh* quad;
+	Mesh* quad2;
 
 	Light* light;
 	Camera* camera;
@@ -83,6 +88,10 @@ protected:
 	GLuint brickWallTex;
 	GLuint brickWallBump;
 
+	GLuint bufferFBO;
+	GLuint processFBO;
+	GLuint bufferColourTex[2];
+	GLuint bufferDepthTex;
 
 	float waterRotate;
 	float waterCycle;
