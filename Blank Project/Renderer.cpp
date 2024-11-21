@@ -128,7 +128,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	SceneNode* l = new SceneNode();
 	l->SetTransform(Matrix4::Translation(heightmapSize* Vector3(0.0f, 3.0f, 0.0f)));
-	l->SetModelScale(Vector3(100.0f, 100.0f, 100.0f));
+	l->SetModelScale(Vector3(1000.0f, 1000.0f, 1000.0f));
 	l->SetBoundingRadius(400.0f);
 	l->SetMesh(lHouse);
 	l->SetTexture(squareTex);
