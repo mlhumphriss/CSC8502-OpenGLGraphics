@@ -29,7 +29,7 @@ protected:
 	void DrawCube();
 	void DrawNodes();
 	void DrawNode(SceneNode* n);
-	void RenderMeshMat();
+	//void RenderMeshMat();
 
 	Shader* lightShader;
 	Shader* reflectShader;
@@ -62,6 +62,9 @@ protected:
 	MeshAnimation* fishAnim;
 	MeshMaterial* fishMat;
 	vector<GLuint> matTextures;
+
+	Mesh* lHouse;
+	MeshMaterial* lHouseMat;
 
 	Mesh* boat;
 	MeshMaterial* boatMat;

@@ -74,7 +74,10 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 
 	boat = Mesh::LoadFromMeshFile("boat_v3.msh");
-	//boatMat = new MeshMaterial("boat_v4.mat");
+	boatMat = new MeshMaterial("boat_v4.mat");
+
+	lHouse = Mesh::LoadFromMeshFile("LightHouse.msh");
+	lHouseMat = new MeshMaterial("LightHouse.mat");
 
 	heightMap = new HeightMap(TEXTUREDIR"noise2.png");
 
@@ -123,8 +126,14 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 		root->AddChild(b);
 	}
 
+	SceneNode* l = new SceneNode();
+	l->SetTransform(Matrix4::Translation(heightmapSize* Vector3(0.0f, 3.0f, 0.0f)));
+	l->SetModelScale(Vector3(100.0f, 100.0f, 100.0f));
+	l->SetBoundingRadius(400.0f);
+	l->SetMesh(lHouse);
+	l->SetTexture(squareTex);
+	root->AddChild(l);
 
-	
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -155,6 +164,10 @@ Renderer::~Renderer(void) {
 	delete fish;
 	delete fishAnim;
 	delete fishMat;
+	delete boat;
+	delete boatMat;
+	delete lHouse;
+	delete lHouseMat;
 
 	delete root;
 
@@ -379,6 +392,7 @@ void Renderer::ClearNodeLists() {
 	transparentNodeList.clear();
 	nodeList.clear();
 }
+/*
 void Renderer::RenderMeshMat() {
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
@@ -405,4 +419,4 @@ void Renderer::RenderMeshMat() {
 		glBindTexture(GL_TEXTURE_2D, matTextures[i]);
 		fish->DrawSubMesh(i);
 	}
-}
+}*/
