@@ -6,14 +6,14 @@ uniform mat4 textureMatrix;
 
 in vec3 position;
 in vec2 texCoord;
-in vec3 colour;
+//in vec3 colour;
 
 out Vertex {
 vec2 texCoord;
-vec3 colour;
+//vec3 colour;
 } OUT;
 void main(void){
-    OUT.colour = colour;
+    //OUT.colour = colour;
 	mat4 mvp = projMatrix*viewMatrix*modelMatrix;
 	gl_Position = mvp * vec4(position, 1.0);
 	

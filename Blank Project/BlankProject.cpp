@@ -20,6 +20,10 @@ int main() {
 		renderer.RenderScene();
 		renderer.SwapBuffers();
 
+		if (Window::GetKeyboard()->KeyDown(KEYBOARD_C)) {
+			renderer.ToggleCamera();
+		}
+
 		if (Window::GetKeyboard()->KeyDown(KEYBOARD_F5)) {
 			Shader::ReloadAllShaders();
 		}

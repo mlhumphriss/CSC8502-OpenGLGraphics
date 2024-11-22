@@ -119,6 +119,9 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	house13 = Mesh::LoadFromMeshFile("013Smallhouse1f52m2.msh");
 	house13Mat = new MeshMaterial("013Smallhouse1f52m2.mat");
 
+	house15 = Mesh::LoadFromMeshFile("015Smallhouse1f48m2.msh");
+	house15Mat = new MeshMaterial("015Smallhouse1f48m2.mat");
+
 	heightMap = new HeightMap(TEXTUREDIR"noise2.png");
 
 	waterTex = SOIL_load_OGL_texture(TEXTUREDIR"water.TGA", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
@@ -136,6 +139,10 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	cubeMap = SOIL_load_OGL_cubemap(TEXTUREDIR"rusted_west.jpg", TEXTUREDIR"rusted_east.jpg",
 		TEXTUREDIR"rusted_up.jpg", TEXTUREDIR"rusted_down.jpg", TEXTUREDIR"rusted_south.jpg",
 		TEXTUREDIR"rusted_north.jpg", SOIL_LOAD_RGB, SOIL_CREATE_NEW_ID, 0);
+
+	cubeMapNight = SOIL_load_OGL_cubemap(TEXTUREDIR"rusted_westNight.jpg", TEXTUREDIR"rusted_eastNight.jpg",
+		TEXTUREDIR"rusted_upNight.jpg", TEXTUREDIR"rusted_downNight.jpg", TEXTUREDIR"rusted_southNight.jpg",
+		TEXTUREDIR"rusted_northNight.jpg", SOIL_LOAD_RGB, SOIL_CREATE_NEW_ID, 0);
 
 	if (!earthTex || !earthBump || !cubeMap || !waterTex || !boatTex || !brickWallTex || !brickWallBump) {
 		return;
@@ -155,7 +162,9 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	light = new Light(heightmapSize * Vector3(2.0f, 10.0f, -1.0f), Vector4(1, 1, 1, 1), 4.0f * heightmapSize.x);
 
-	projMatrix = Matrix4::Perspective(0.1f, 25000.0f, (float)width / (float)height, 45.0f);
+	//lhLight = new Light(heightmapSize * Vector3(0.03f, 50.0f, 0.8f), Vector4(1, 1, 1, 1), 1.0f * heightmapSize.x);
+
+	projMatrix = Matrix4::Perspective(0.1f, 12000.0f, (float)width / (float)height, 45.0f);
 
 	for (int i = 0; i < 5; ++i) {
 		SceneNode* b = new SceneNode();
@@ -189,6 +198,18 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 		h->SetTexture(boatTex);
 		root->AddChild(h);
 	}
+
+	for (int i = 0; i < 2; ++i) {
+		SceneNode* f = new SceneNode();
+		f->SetTransform(Matrix4::Translation(heightmapSize * Vector3(0.55f+0.06*i, 0.87f, 0.4f+ 0.1*i))* Matrix4::Rotation(190.0f, Vector3(0, 1, 0)));
+		f->SetModelScale(Vector3(2.0f, 2.0f, 2.0f));
+		f->SetBoundingRadius(700.0f);
+		f->SetMesh(house15);
+		f->SetTexture(boatTex);
+		root->AddChild(f);
+	}
+
+
 	
 	
 
@@ -196,6 +217,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+	cameraTrack = false;
 	waterRotate = 0.0f;
 	waterCycle = 0.0f;
 	waterBob = 0.0f;
@@ -241,15 +263,57 @@ Renderer::~Renderer(void) {
 	delete root;
 
 }
+void Renderer::ToggleCamera() {
+	cameraTrack = !cameraTrack;
+	
+	if (cameraTrack == true) {
+		camera->setPosition(heightMap->GetHeightmapSize() * Vector3(0.9f, 1.1f, 0.2f));
+		camera->SetYaw(180.0f);
+		camera->SetPitch(0.0f);
+	}
+	cameraTrackTimer = 0.0f;
+}
+void Renderer::CameraTrackProcess() {
+	Vector3 pos = camera->GetPosition();
+	Vector3 heightmapSize = heightMap->GetHeightmapSize();
+
+	float direction = camera->GetYaw();
+	direction -= 0.05f;
+	camera->SetYaw(direction);
+	cameraTrackTimer += 0.05f;
+
+	if (pos.z < (0.8f * heightmapSize.z)) {
+		pos.z = pos.z + 0.5f;
+		camera->setPosition(pos);
+
+		pos.x = pos.x - 0.05f;
+		camera->setPosition(pos);
+	}
+	else if (pos.x > (0.2f * heightmapSize.x)) {
+		pos.x = pos.x - 0.5f;
+		camera->setPosition(pos);
+		pos.y = pos.y + 0.05f;
+		camera->setPosition(pos);
+	}
+	else if(cameraTrackTimer > 600.0f){
+		cameraTrack = false;
+	}
+}
 void Renderer::UpdateScene(float dt) {
+	if (cameraTrack == true) {
+		CameraTrackProcess();
+	}
 	camera->UpdateCamera(dt);
 	viewMatrix = camera->BuildViewMatrix();
+
+
 	frameFrustum.FromMatrix(projMatrix * viewMatrix);
 	waterRotate += dt * 0.2f;
 	waterCycle += dt * 0.05f;
+	waterBob = heightMap->GetHeightmapSize().y* 0.001f  * sin(5*waterCycle);
+	
 	root->Update(dt);
 	frameTime -= dt;
-	waterBob = heightMap->GetHeightmapSize().y* 0.001f  * sin(3*waterCycle);
 	while (frameTime < 0.0f) {
 		currentFrame = (currentFrame + 1) % fishAnim->GetFrameCount();
 		frameTime += 1.0f / fishAnim->GetFrameRate();
@@ -287,7 +351,7 @@ void Renderer::RenderScene() {
 
 	DrawSkybox();
 	DrawHeightmap();
-	DrawCube();
+	//DrawCube();
 	DrawWater();
 	//RenderMeshMat();
 	DrawNodes();
@@ -295,7 +359,7 @@ void Renderer::RenderScene() {
 
 	DrawShadowScene();
 	viewMatrix = camera->BuildViewMatrix();
-	projMatrix = Matrix4::Perspective(0.1f, 25000.0f, (float)width / (float)height, 45.0f);
+	projMatrix = Matrix4::Perspective(0.1f, 12000.0f, (float)width / (float)height, 45.0f);
 	
 	/*
 	DrawPostprocess();
@@ -321,14 +385,16 @@ void Renderer::DrawShadowScene() {
 	BindShader(shadowShader);
 	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0.2f, 0.1f, 0.2f));
 
-	projMatrix = Matrix4::Perspective(0.1f, 15000.0f, (float)width / (float)height, 45.0f);
+	projMatrix = Matrix4::Perspective(0.1f, 12000.0f, (float)width / (float)height, 45.0f);
 	shadowMatrix = projMatrix * viewMatrix;
 	
 	//Remember to add scene node loop later
+	/*
 	modelMatrix = Matrix4::Translation((heightMap->GetHeightmapSize()) * Vector3(0.4f, 2.0f, 0.2f)) * Matrix4::Scale(Vector3(100.0f, 100.0f, 100.0f));
 	UpdateShaderMatrices();
 	
 	test->Draw();
+	*/
 
 	for (const auto& i : nodeList) {
 		modelMatrix = i->GetWorldTransform() * Matrix4::Scale(i->GetModelScale());

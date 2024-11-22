@@ -17,6 +17,7 @@ public:
 	~Renderer(void);
 	void RenderScene() override;
 	void UpdateScene(float dt) override;
+	void ToggleCamera();
 
 protected:
 	void BuildNodeLists(SceneNode* from);
@@ -32,6 +33,7 @@ protected:
 	void RenderMeshMat();
 	void PresentScene();
 	void DrawPostprocess();
+	void CameraTrackProcess();
 
 	Shader* lightShader;
 	Shader* reflectShader;
@@ -55,6 +57,7 @@ protected:
 
 	Light* light;
 	Camera* camera;
+	Light* lhLight;
 
 	SceneNode* root;
 	Frustum frameFrustum;
@@ -74,11 +77,15 @@ protected:
 	Mesh* house13;
 	MeshMaterial* house13Mat;
 
+	Mesh* house15;
+	MeshMaterial* house15Mat;
+
 	Mesh* boat;
 	MeshMaterial* boatMat;
 
 
 	GLuint cubeMap;
+	GLuint cubeMapNight;
 	GLuint waterTex;
 	GLuint earthTex;
 	GLuint earthBump;
@@ -98,4 +105,6 @@ protected:
 	float waterBob;
 	int currentFrame;
 	float frameTime;
+	bool cameraTrack;
+	float cameraTrackTimer;
 };
