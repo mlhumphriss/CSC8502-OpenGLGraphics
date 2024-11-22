@@ -50,7 +50,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	glDrawBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	/*
+	/**/
 	glGenTextures(1, &bufferDepthTex);
 	glBindTexture(GL_TEXTURE_2D, bufferDepthTex);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
@@ -82,7 +82,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	*/
+	//*/
 	root = new SceneNode();
 
 	quad = Mesh::GenerateQuad();
@@ -93,7 +93,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	fish = Mesh::LoadFromMeshFile("Role_T.msh");
 	fishAnim = new MeshAnimation("Role_T.anm");
 	fishMat = new MeshMaterial("Role_T.mat");
-	
+	/*
 	for (int i = 0; i < fish->GetSubMeshCount(); ++i) {
 		const MeshMaterialEntry* matEntry = fishMat->GetMaterialForLayer(i);
 
@@ -104,7 +104,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 		GLuint texID = SOIL_load_OGL_texture(path.c_str(), SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y);
 
 		matTextures.emplace_back(texID);
-	}
+	}*/
 	
 	currentFrame = 0;
 	frameTime = 0.0f;
@@ -116,8 +116,8 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	lHouseMat = new MeshMaterial("LightHouse.mat");
 
 
-	//house13 = Mesh::LoadFromMeshFile("013Smallhouse1f52m2.msh");
-	//house13Mat = new MeshMaterial("013Smallhouse1f52m2.mat");
+	house13 = Mesh::LoadFromMeshFile("013Smallhouse1f52m2.msh");
+	house13Mat = new MeshMaterial("013Smallhouse1f52m2.mat");
 
 	heightMap = new HeightMap(TEXTUREDIR"noise2.png");
 
@@ -159,7 +159,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 
 	for (int i = 0; i < 5; ++i) {
 		SceneNode* b = new SceneNode();
-		b->SetTransform(Matrix4::Translation(heightmapSize * Vector3(0.68f + 0.02 *i, 0.5f, 0.4f + 0.03 * i)));
+		b->SetTransform(Matrix4::Translation(heightmapSize * Vector3(0.687f + 0.02 *i, 0.5f, 0.4f + 0.03 * i)));
 		b->SetModelScale(Vector3(50.0f, 50.0f, 50.0f));
 		b->SetBoundingRadius(300.0f);
 		b->SetMesh(boat);
@@ -175,15 +175,21 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	l->SetTexture(brickWallTex);
 	root->AddChild(l);
 
-	/*
-	SceneNode* h = new SceneNode();
-	h->SetTransform(Matrix4::Translation(heightmapSize * Vector3(0.9f, 0.95f, 0.8f)));
-	h->SetModelScale(Vector3(2.0f, 2.0f, 2.0f));
-	h->SetBoundingRadius(400.0f);
-	h->SetMesh(house13);
-	h->SetTexture(boatTex);
-	root->AddChild(h);
-	*/
+	
+	for (int i = 0; i < 3; ++i){
+		SceneNode* h = new SceneNode();
+		float mod = 0.0f;
+		if (i % 2 != 0) {
+			mod = 0.04;
+		}
+		h->SetTransform(Matrix4::Translation(heightmapSize * Vector3(0.9f-0.1*i + (mod/2), 0.95f, 0.8f + 0.06 * i + mod)) * Matrix4::Rotation(-45.0f * i, Vector3(0, 1, 0)));
+		h->SetModelScale(Vector3(2.0f, 2.0f, 2.0f));
+		h->SetBoundingRadius(400.0f);
+		h->SetMesh(house13);
+		h->SetTexture(boatTex);
+		root->AddChild(h);
+	}
+	
 	
 
 	glEnable(GL_DEPTH_TEST);
@@ -198,16 +204,17 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 Renderer::~Renderer(void) {
 	glDeleteTextures(1, &shadowTex);
 	glDeleteFramebuffers(1, &shadowFBO);
-	/*
+	/**/
 	glDeleteTextures(2, bufferColourTex);
 	glDeleteTextures(1, &bufferDepthTex);
 	glDeleteFramebuffers(1, &bufferFBO);
 	glDeleteFramebuffers(1, &processFBO);
-	*/
+	//*/
 
 	delete camera;
 	delete heightMap;
 	delete quad;
+	delete quad2;
 	delete test;
 	delete reflectShader;
 	delete skyboxShader;
@@ -228,8 +235,8 @@ Renderer::~Renderer(void) {
 	delete boatMat;
 	delete lHouse;
 	delete lHouseMat;
-	//delete house13;
-	//delete house13Mat;
+	delete house13;
+	delete house13Mat;
 
 	delete root;
 
@@ -240,9 +247,9 @@ void Renderer::UpdateScene(float dt) {
 	frameFrustum.FromMatrix(projMatrix * viewMatrix);
 	waterRotate += dt * 0.2f;
 	waterCycle += dt * 0.05f;
-	waterBob = 10.0f*  sin(dt);
 	root->Update(dt);
 	frameTime -= dt;
+	waterBob = heightMap->GetHeightmapSize().y* 0.001f  * sin(3*waterCycle);
 	while (frameTime < 0.0f) {
 		currentFrame = (currentFrame + 1) % fishAnim->GetFrameCount();
 		frameTime += 1.0f / fishAnim->GetFrameRate();
@@ -274,7 +281,9 @@ void Renderer::RenderScene() {
 	SortNodeLists();
 
 	//glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
-	//glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT /**/ | GL_STENCIL_BUFFER_BIT/**/);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT /* | GL_STENCIL_BUFFER_BIT/**/);
+
+	
 
 	DrawSkybox();
 	DrawHeightmap();
@@ -291,7 +300,7 @@ void Renderer::RenderScene() {
 	/*
 	DrawPostprocess();
 	PresentScene();
-	*/
+	//*/
 	ClearNodeLists();
 }
 void Renderer::DrawNodes() {
@@ -339,17 +348,14 @@ void Renderer::DrawShadowScene() {
 }
 void Renderer::DrawNode(SceneNode* n) {
 	if (n->GetMesh()) {
-		Matrix4 model = n->GetWorldTransform() * Matrix4::Scale(n->GetModelScale());
-		/*
-		glUniformMatrix4fv(glGetUniformLocation(shader->GetProgram(), "modelMatrix"), 1, false, model.values);
-		glUniform4fv(glGetUniformLocation(shader->GetProgram(), "nodeColour"), 1, (float*)&n->GetColour());
+		Matrix4 model;
 
-		texture = n->GetTexture();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texture);
-
-		glUniform1i(glGetUniformLocation(shader->GetProgram(), "useTexture"), texture);
-		*/
+		if (n->GetMesh() == boat) {
+			 model = n->GetWorldTransform() * Matrix4::Translation(Vector3(1.0f, 50.0f * waterBob, 1.0f)) * Matrix4::Scale(n->GetModelScale());
+		}
+		else {
+			 model = n->GetWorldTransform() * Matrix4::Scale(n->GetModelScale());
+		}
 		BindShader(flatTexShader);
 		SetShaderLight(*light);
 
@@ -450,7 +456,7 @@ void Renderer::DrawWater() {
 
 	Vector3 hSize = heightMap->GetHeightmapSize();
 
-	modelMatrix = (Matrix4::Translation(hSize * 0.5f) /* Matrix4::Translation(Vector3(1.0f, 50.0f * waterBob, 1.0f)))*/ * Matrix4::Scale(hSize * 0.5f) * Matrix4::Rotation(90, Vector3(1, 0, 0)));
+	modelMatrix = (Matrix4::Translation(hSize * 0.5f) * Matrix4::Translation(Vector3(1.0f, 50.0f * waterBob, 1.0f)) * Matrix4::Scale(hSize * 0.5f) * Matrix4::Rotation(90, Vector3(1, 0, 0)));
 
 	textureMatrix = Matrix4::Translation(Vector3(waterCycle, 0.0f, waterCycle)) * Matrix4::Scale(Vector3(10, 10, 10))
 		* Matrix4::Rotation(waterRotate, Vector3(0, 0, 1));
@@ -463,7 +469,7 @@ void Renderer::ClearNodeLists() {
 	transparentNodeList.clear();
 	nodeList.clear();
 }
-
+/*
 void Renderer::RenderMeshMat() {
 	//glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
@@ -490,8 +496,8 @@ void Renderer::RenderMeshMat() {
 		glBindTexture(GL_TEXTURE_2D, matTextures[i]);
 		fish->DrawSubMesh(i);
 	}
-}
-/**/
+}*/
+//*
 void Renderer::DrawPostprocess() {
 	glBindFramebuffer(GL_FRAMEBUFFER, processFBO);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[1], 0);
@@ -506,7 +512,7 @@ void Renderer::DrawPostprocess() {
 	glDisable(GL_DEPTH_TEST);
 
 	glActiveTexture(GL_TEXTURE0);
-	glUniform1i(glGetUniformLocation(processShader->GetProgram(), "sceneTex"), 0);
+	glUniform1i(glGetUniformLocation(processShader->GetProgram(), "diffuseTex"), 0);
 
 	for (int i = 0; i < POST_PASSES; ++i) {
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[1], 0);
